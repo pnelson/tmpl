@@ -57,6 +57,9 @@ func (t *Template) Render(view Viewable) ([]byte, error) {
 
 // load returns the parsed templates representing the view.
 func (t *Template) load(view Viewable) *template.Template {
+	if view == nil {
+		return template.New("nil")
+	}
 	names := view.Templates()
 	if t.recompile {
 		return t.parse(names)
