@@ -4,6 +4,7 @@ package tmpl
 
 import (
 	"html/template"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"sync"
@@ -45,10 +46,13 @@ type Viewable interface {
 // Render returns the result of applying the templates
 // associated with view to the view itself.
 func (t *Template) Render(view Viewable) ([]byte, error) {
-	p := t.load(view)
+	p, err := t.load(view)
+	if err != nil {
+		return nil, err
+	}
 	b := t.pool.Get()
 	defer t.pool.Put(b)
-	err := p.Execute(b, view)
+	err = p.Execute(b, view)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +60,9 @@ func (t *Template) Render(view Viewable) ([]byte, error) {
 }
 
 // load returns the parsed templates representing the view.
-func (t *Template) load(view Viewable) *template.Template {
+func (t *Template) load(view Viewable) (*template.Template, error) {
 	if view == nil {
-		return template.New("nil")
+		return template.New("nil"), nil
 	}
 	names := view.Templates()
 	if t.recompile {
@@ -69,24 +73,37 @@ func (t *Template) load(view Viewable) *template.Template {
 	key := reflect.TypeOf(view).String()
 	p, ok := t.templates[key]
 	if !ok {
-		p = t.parse(names)
+		var err error
+		p, err = t.parse(names)
+		if err != nil {
+			return nil, err
+		}
 		t.templates[key] = p
 	}
-	return p
+	return p, nil
 }
 
 // parse returns the parsed template.
-func (t *Template) parse(names []string) *template.Template {
-	return template.Must(template.ParseFiles(t.filenames(names)...))
-}
-
-// filenames returns the filenames for the template names.
-func (t *Template) filenames(names []string) []string {
-	rv := make([]string, len(names))
-	for i, name := range names {
-		rv[i] = t.filename(name)
+func (t *Template) parse(names []string) (*template.Template, error) {
+	var rv *template.Template
+	for _, name := range names {
+		b, err := ioutil.ReadFile(t.filename(name))
+		if err != nil {
+			return nil, err
+		}
+		var tmpl *template.Template
+		if rv == nil {
+			rv = template.New(name)
+			tmpl = rv
+		} else {
+			tmpl = rv.New(name)
+		}
+		_, err = tmpl.Parse(string(b))
+		if err != nil {
+			return nil, err
+		}
 	}
-	return rv
+	return rv, nil
 }
 
 // filename returns a fully qualified template filename.
