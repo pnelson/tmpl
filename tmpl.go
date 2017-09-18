@@ -12,7 +12,7 @@ import (
 
 // Template represents a set of HTML templates.
 type Template struct {
-	sync.Mutex
+	mu        sync.Mutex
 	root      string
 	extension string
 	recompile bool
@@ -68,8 +68,8 @@ func (t *Template) load(view Viewable) (*template.Template, error) {
 	if t.recompile {
 		return t.parse(names)
 	}
-	t.Lock()
-	defer t.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	key := reflect.TypeOf(view).String()
 	p, ok := t.templates[key]
 	if !ok {
