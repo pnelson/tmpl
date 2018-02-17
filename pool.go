@@ -2,8 +2,8 @@ package tmpl
 
 import "bytes"
 
-// Pooler represents a buffer pool.
-type Pooler interface {
+// Pool represents a buffer pool.
+type Pool interface {
 	Get() *bytes.Buffer
 	Put(b *bytes.Buffer)
 }

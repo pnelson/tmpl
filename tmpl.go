@@ -4,8 +4,6 @@ package tmpl
 
 import (
 	"html/template"
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"sync"
 )
@@ -13,19 +11,17 @@ import (
 // Template represents a set of HTML templates.
 type Template struct {
 	mu        sync.Mutex
-	root      string
-	extension string
 	recompile bool
-	pool      Pooler
+	loader    Loader
+	pool      Pool
 	templates map[string]*template.Template
 }
 
 // New returns a new template set.
-func New(root string, opts ...Option) *Template {
+func New(opts ...Option) *Template {
 	t := &Template{
-		root:      root,
-		extension: defaultExtension,
 		recompile: false,
+		loader:    defaultLoader,
 		pool:      defaultPool,
 		templates: make(map[string]*template.Template),
 	}
@@ -37,9 +33,7 @@ func New(root string, opts ...Option) *Template {
 
 // Viewable represents a view.
 type Viewable interface {
-	// Templates returns a slice of template names to parse.
-	// The provided file names are expected to be relative to the
-	// root template directory and omit the extension.
+	// Templates returns a slice of template names to load and parse.
 	Templates() []string
 }
 
@@ -87,7 +81,7 @@ func (t *Template) load(view Viewable) (*template.Template, error) {
 func (t *Template) parse(names []string) (*template.Template, error) {
 	var rv *template.Template
 	for _, name := range names {
-		b, err := ioutil.ReadFile(t.filename(name))
+		b, err := t.loader.Load(name)
 		if err != nil {
 			return nil, err
 		}
@@ -104,9 +98,4 @@ func (t *Template) parse(names []string) (*template.Template, error) {
 		}
 	}
 	return rv, nil
-}
-
-// filename returns a fully qualified template filename.
-func (t *Template) filename(name string) string {
-	return filepath.Join(t.root, name+t.extension)
 }
