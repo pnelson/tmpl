@@ -4,6 +4,7 @@ package tmpl
 
 import (
 	"html/template"
+	"io"
 	"reflect"
 	"sync"
 )
@@ -11,18 +12,16 @@ import (
 // Template represents a set of HTML templates.
 type Template struct {
 	mu        sync.Mutex
-	recompile bool
 	loader    Loader
-	pool      Pool
+	recompile bool
 	templates map[string]*template.Template
 }
 
 // New returns a new template set.
 func New(opts ...Option) *Template {
 	t := &Template{
-		recompile: false,
 		loader:    defaultLoader,
-		pool:      defaultPool,
+		recompile: false,
 		templates: make(map[string]*template.Template),
 	}
 	for _, option := range opts {
@@ -37,20 +36,14 @@ type Viewable interface {
 	Templates() []string
 }
 
-// Render returns the result of applying the templates
+// Render writes the result of applying the templates
 // associated with view to the view itself.
-func (t *Template) Render(view Viewable) ([]byte, error) {
+func (t *Template) Render(w io.Writer, view Viewable) error {
 	p, err := t.load(view)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	b := t.pool.Get()
-	defer t.pool.Put(b)
-	err = p.Execute(b, view)
-	if err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
+	return p.Execute(w, view)
 }
 
 // load returns the parsed templates representing the view.

@@ -10,13 +10,6 @@ func WithLoader(loader Loader) Option {
 	}
 }
 
-// WithPool sets the pool to to get and put byte buffers from.
-func WithPool(pool Pool) Option {
-	return func(t *Template) {
-		t.pool = pool
-	}
-}
-
 // WithRecompile sets the flag that indicates if templates are
 // to be reompiled on demand. This may be useful for development.
 // Defaults to false.
