@@ -5,7 +5,7 @@ package tmpl
 import (
 	"html/template"
 	"io"
-	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -57,7 +57,7 @@ func (t *Template) load(view Viewable) (*template.Template, error) {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	key := reflect.TypeOf(view).String()
+	key := strings.Join(names, ":")
 	p, ok := t.templates[key]
 	if !ok {
 		var err error
