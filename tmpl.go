@@ -58,14 +58,14 @@ func (t *Template) prepare(view Viewable) (*template.Template, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	p, ok := t.parsed[key]
-	if !ok || t.recompile {
-		var err error
-		p, err = t.parse(names)
-		if err != nil {
-			return nil, err
-		}
-		t.parsed[key] = p
+	if ok && !t.recompile {
+		return p, nil
 	}
+	p, err := t.parse(names)
+	if err != nil {
+		return nil, err
+	}
+	t.parsed[key] = p
 	return p, nil
 }
 
@@ -95,13 +95,14 @@ func (t *Template) parse(names []string) (*template.Template, error) {
 // load returns the template contents retrieved from the loader.
 func (t *Template) load(name string) (string, error) {
 	s, ok := t.loaded[name]
-	if !ok || t.recompile {
-		b, err := t.loader.Load(name)
-		if err != nil {
-			return "", err
-		}
-		s = string(b)
-		t.loaded[name] = s
+	if ok && !t.recompile {
+		return s, nil
 	}
+	b, err := t.loader.Load(name)
+	if err != nil {
+		return "", err
+	}
+	s = string(b)
+	t.loaded[name] = s
 	return s, nil
 }
