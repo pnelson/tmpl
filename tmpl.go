@@ -13,16 +13,18 @@ import (
 type Template struct {
 	mu        sync.Mutex
 	loader    Loader
+	loaded    map[string]string
+	parsed    map[string]*template.Template
 	recompile bool
-	templates map[string]*template.Template
 }
 
 // New returns a new template set.
 func New(opts ...Option) *Template {
 	t := &Template{
 		loader:    defaultLoader,
+		loaded:    make(map[string]string),
+		parsed:    make(map[string]*template.Template),
 		recompile: false,
-		templates: make(map[string]*template.Template),
 	}
 	for _, option := range opts {
 		option(t)
@@ -39,33 +41,30 @@ type Viewable interface {
 // Render writes the result of applying the templates
 // associated with view to the view itself.
 func (t *Template) Render(w io.Writer, view Viewable) error {
-	p, err := t.load(view)
+	p, err := t.prepare(view)
 	if err != nil {
 		return err
 	}
 	return p.Execute(w, view)
 }
 
-// load returns the parsed templates representing the view.
-func (t *Template) load(view Viewable) (*template.Template, error) {
+// prepare returns the parsed templates representing the view.
+func (t *Template) prepare(view Viewable) (*template.Template, error) {
 	if view == nil {
 		return template.New("nil"), nil
 	}
 	names := view.Templates()
-	if t.recompile {
-		return t.parse(names)
-	}
+	key := strings.Join(names, ":")
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	key := strings.Join(names, ":")
-	p, ok := t.templates[key]
-	if !ok {
+	p, ok := t.parsed[key]
+	if !ok || t.recompile {
 		var err error
 		p, err = t.parse(names)
 		if err != nil {
 			return nil, err
 		}
-		t.templates[key] = p
+		t.parsed[key] = p
 	}
 	return p, nil
 }
@@ -74,10 +73,6 @@ func (t *Template) load(view Viewable) (*template.Template, error) {
 func (t *Template) parse(names []string) (*template.Template, error) {
 	var rv *template.Template
 	for _, name := range names {
-		b, err := t.loader.Load(name)
-		if err != nil {
-			return nil, err
-		}
 		var tmpl *template.Template
 		if rv == nil {
 			rv = template.New(name)
@@ -85,10 +80,28 @@ func (t *Template) parse(names []string) (*template.Template, error) {
 		} else {
 			tmpl = rv.New(name)
 		}
-		_, err = tmpl.Parse(string(b))
+		s, err := t.load(name)
+		if err != nil {
+			return nil, err
+		}
+		_, err = tmpl.Parse(s)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return rv, nil
+}
+
+// load returns the template contents retrieved from the loader.
+func (t *Template) load(name string) (string, error) {
+	s, ok := t.loaded[name]
+	if !ok || t.recompile {
+		b, err := t.loader.Load(name)
+		if err != nil {
+			return "", err
+		}
+		s = string(b)
+		t.loaded[name] = s
+	}
+	return s, nil
 }
