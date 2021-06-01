@@ -2,7 +2,9 @@ package tmpl_test
 
 import (
 	"bytes"
+	"embed"
 	"flag"
+	"io/fs"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -12,14 +14,31 @@ import (
 
 var update = flag.Bool("update", false, "update .golden files")
 
+//go:embed testdata
+var embedFS embed.FS
+
+// extFS is a fs.FS implementation that appends a common extension.
+type extFS struct {
+	fs  fs.FS
+	ext string
+}
+
+// Open implements the fs.FS interface.
+func (f extFS) Open(name string) (fs.File, error) {
+	return f.fs.Open(name + f.ext)
+}
+
 func TestGolden(t *testing.T) {
 	var tt = map[string]tmpl.Viewable{
 		"basic.html":  basic{Title: "test"},
 		"layout.html": index{layout: layout{Title: "test"}},
 		"nested.html": nested{layout: layout{Title: "test"}},
 	}
-	opts := tmpl.WithLoader(tmpl.NewFileSystemLoader("testdata", ".html"))
-	templates := tmpl.New(opts)
+	testdata, err := fs.Sub(embedFS, "testdata")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	templates := tmpl.New(extFS{testdata, ".html"})
 	for filename, view := range tt {
 		compare(t, templates, filename, view)
 	}
