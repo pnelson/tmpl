@@ -5,7 +5,7 @@ import (
 	"embed"
 	"flag"
 	"io/fs"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -53,9 +53,9 @@ func compare(t *testing.T, set *tmpl.Template, filename string, view tmpl.Viewab
 	have := buf.Bytes()
 	golden := filepath.Join("testdata", "golden", filename)
 	if *update {
-		ioutil.WriteFile(golden, have, 0644)
+		os.WriteFile(golden, have, 0644)
 	}
-	want, err := ioutil.ReadFile(golden)
+	want, err := os.ReadFile(golden)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
